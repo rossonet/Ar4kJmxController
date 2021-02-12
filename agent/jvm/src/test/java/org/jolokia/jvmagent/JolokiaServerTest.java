@@ -50,7 +50,11 @@ public class JolokiaServerTest {
                 null,
                 "executor=fixed,threadNr=5",
                 "executor=cached",
-                "executor=single"
+                "executor=single",
+                "executor=fixed,threadNr=5,threadNamePrefix=JolokiaServerTestExecutorFixed",
+                "executor=cached,threadNamePrefix=JolokiaServerTestExecutorFixedCached",
+                "executor=single,threadNamePrefix=JolokiaServerTestExecutorFixedSingle",
+                "executor=fixed,threadNamePrefix=jolokia-,threadNr=5",
         };
 
         for (String c : configs) {
@@ -240,7 +244,7 @@ public class JolokiaServerTest {
                        "admin:wrong");
     }
 
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*401.*")
+    @Test(expectedExceptions = IOException.class)
     public void t_264_with_basic_auth_and_wrong_client_cert() throws Exception {
         httpsRoundtrip("authMode=basic,user=admin,password=password,useSslClientAuthentication=true,clientPrincipal=O=microsoft.com,"
                        + getFullCertSetup(),

@@ -2,6 +2,7 @@ package org.jolokia.osgi.security;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.jolokia.util.AuthorizationHeaderParser;
 import org.osgi.service.http.HttpContext;
 
 /**
@@ -9,7 +10,7 @@ import org.osgi.service.http.HttpContext;
 * @since 26.05.14
 */
 
-public class BasicAuthenticator extends Authenticator {
+public class BasicAuthenticator extends BaseAuthenticator {
 
     private final String userToCheck;
     private final String passwordToCheck;

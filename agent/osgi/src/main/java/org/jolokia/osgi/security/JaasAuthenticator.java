@@ -5,6 +5,7 @@ import javax.security.auth.login.*;
 import javax.servlet.http.HttpServletRequest;
 
 import org.jolokia.config.ConfigKey;
+import org.jolokia.util.AuthorizationHeaderParser;
 import org.jolokia.util.UserPasswordCallbackHandler;
 import org.osgi.service.http.HttpContext;
 
@@ -12,7 +13,7 @@ import org.osgi.service.http.HttpContext;
  * @author roland
  * @since 26.05.14
  */
-public class JaasAuthenticator extends Authenticator {
+public class JaasAuthenticator extends BaseAuthenticator {
 
     private final String realm;
 
@@ -27,7 +28,7 @@ public class JaasAuthenticator extends Authenticator {
             String password = pAuthInfo.getPassword();
 
             final CallbackHandler handler = new UserPasswordCallbackHandler(user, password);
-            LoginContext loginContext = new LoginContext(realm, handler);
+            LoginContext loginContext = createLoginContext(realm, handler);
             loginContext.login();
 
             pRequest.setAttribute(HttpContext.AUTHENTICATION_TYPE,HttpServletRequest.BASIC_AUTH);
@@ -38,6 +39,10 @@ public class JaasAuthenticator extends Authenticator {
         } catch (LoginException e) {
             return false;
         }
+    }
+
+    protected LoginContext createLoginContext(String realm, CallbackHandler handler) throws LoginException {
+        return new LoginContext(realm, handler);
     }
 
 }

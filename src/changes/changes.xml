@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Copyright 2009-2013 Roland Huss
+  ~ Copyright 2009-2019 Roland Huss
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -23,9 +23,56 @@
     <author email="roland@jolokia.org">Roland Huß</author>
   </properties>
   <body>
-    <release version="1.4.1-SNAPSHOT" description="Release 1.4.1-SNAPSHOT">
+    <release version="1.6.3" description="Release 1.6.3" date="">
+      <action dev="graben" type="add" issue="421">
+        Make multicast discovery address and multicast port configurable with configuration, system property or environment variable.
+      </action>
+      <action dev="coheigea" type="fix" issue="427">
+        Configure TLS settings per-connection and not globally
+      </action>
+    </release>
+    <release version="1.6.2" description="Release 1.6.2" date="2019-06-20">
+      <action dev="dsimansk" type="update" issue="403">
+        Add support to load multiple CA certs from store
+      </action>
+    </release>
+    <release version="1.6.1" description="Release 1.6.1" date="2019-05-01">
+      <action dev="nevenr" type="add" issue="344">
+        Add configuration option authMatch which explains how to combine multiple authenticators if MultiAuthenticator is used.
+      </action>
+      <action dev="nevenr" type="add" issue="334">
+        Add BigInteger simplifier. BigInteger becomes a JSON object with the key "bigint" containing the big integer value as String.
+      </action>
+      <action dev="nevenr" type="add" issue="367">
+        Add configuration option threadNamePrefix which will be used by jolokia http server executor
+        Default: "jolokia-"
+      </action>
+      <action dev="rhuss" type="fix">
+        When strict-checking is enabled for a CORS policy, then reject a request also when no Origin or Referer header is given.
+      </action>
+    </release>
+    <release version="1.6.0" description="Release 1.6.0" date="2018-06-25">
+      <action dev="rhuss" type="update">
+        Enable authentication with role "jolokia" for the war agent by default.
+      </action>
+      <action dev="rhuss" type="add">
+        Add new "jolokia-unsecured.war" which unsecured as "jolokia.war" in version 1.5.0 and below.
+      </action>
+    </release>
+    <release version="1.5.0" description="Release 1.5.0" date="2018-02-08">
       <action dev="rhuss" type="fix">
         Restrict allowed mime types to "text/plain" and "application/json" for the response.
+      </action>
+      <action dev="rhuss" type="add">
+        Because of security reasion, the JSR-160 proxy mode is disabled by default int the Java EE agent.
+        It can be enabled via web.xml configuration, a system property or an environment variable. In addition
+        it is now possible to configure a whitelist with patterns which are allowed as targets in the
+        proxy mode. See the reference manual section on "Proxy mode" for details.
+      </action>
+      <action dev="ryandgoulding" type="add" issue="358">
+        New authMode "service-any" and "service-all" to allow to lookup an
+        org.jolokia.osgi.security.Authenticator used for authentication. Note that this class has
+        been changed from an abstract base class to an interface for ease of customization.
       </action>
     </release>
     <release version="1.4.0" description="Release 1.4.0" date="2018-01-23">

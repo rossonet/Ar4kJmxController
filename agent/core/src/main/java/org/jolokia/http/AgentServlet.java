@@ -137,12 +137,52 @@ public class AgentServlet extends HttpServlet {
             logHandler.info("Using custom access restriction provided by " + restrictor);
         }
         configMimeType = config.get(ConfigKey.MIME_TYPE);
-        backendManager = new BackendManager(config,logHandler, restrictor);
-        requestHandler = new HttpRequestHandler(config,backendManager,logHandler);
+
+        addJsr160DispatcherIfExternallyConfigured(config);
+        backendManager = new BackendManager(config, logHandler, restrictor);
+
+        requestHandler = new HttpRequestHandler(config, backendManager, logHandler);
         allowDnsReverseLookup = config.getAsBoolean(ConfigKey.ALLOW_DNS_REVERSE_LOOKUP);
         streamingEnabled = config.getAsBoolean(ConfigKey.STREAMING);
 
         initDiscoveryMulticast(config);
+    }
+
+
+    /**
+     * Add the JsrRequestDispatcher if configured via a system property or env variable.
+     * The JSR160 dispatcher is disabled by default, but this allows to enable it again
+     * without reconfiguring the servlet
+     *
+     * @param pConfig configuration to update
+     */
+    private void addJsr160DispatcherIfExternallyConfigured(Configuration pConfig) {
+        String dispatchers = pConfig.get(ConfigKey.DISPATCHER_CLASSES);
+        String jsr160DispatcherClass = "org.jolokia.jsr160.Jsr160RequestDispatcher";
+
+        if (dispatchers == null || !dispatchers.contains(jsr160DispatcherClass)) {
+            for (String param : new String[]{
+                System.getProperty("org.jolokia.jsr160ProxyEnabled"),
+                System.getenv("JOLOKIA_JSR160_PROXY_ENABLED")
+            }) {
+                if (param != null && (param.isEmpty() || Boolean.parseBoolean(param))) {
+                    {
+                        pConfig.updateGlobalConfiguration(
+                            Collections.singletonMap(
+                                ConfigKey.DISPATCHER_CLASSES.getKeyValue(),
+                                (dispatchers != null ? dispatchers + "," : "") + jsr160DispatcherClass));
+                    }
+                    return;
+                }
+            }
+            if (dispatchers == null) {
+                // We add a breaking dispatcher to avoid silently ignoring a JSR160 proxy request
+                // when it is now enabled
+                pConfig.updateGlobalConfiguration(Collections.singletonMap(
+                    ConfigKey.DISPATCHER_CLASSES.getKeyValue(),
+                    Jsr160ProxyNotEnabledByDefaultAnymoreDispatcher.class.getCanonicalName()));
+            }
+        }
     }
 
     /**
@@ -159,8 +199,10 @@ public class AgentServlet extends HttpServlet {
         String url = findAgentUrl(pConfig);
         if (url != null || listenForDiscoveryMcRequests(pConfig)) {
             backendManager.getAgentDetails().setUrl(url);
+            String multicastGroup = getOrDefault(ConfigKey.MULTICAST_GROUP, "JOLOKIA_MULTICAST_GROUP", pConfig, String.class);
+            int multicastPort = getOrDefault(ConfigKey.MULTICAST_PORT, "JOLOKIA_MULTICAST_PORT", pConfig, Integer.class);
             try {
-                discoveryMulticastResponder = new DiscoveryMulticastResponder(backendManager,restrictor,logHandler);
+                discoveryMulticastResponder = new DiscoveryMulticastResponder(backendManager,restrictor,multicastGroup,multicastPort,logHandler);
                 discoveryMulticastResponder.start();
             } catch (IOException e) {
                 logHandler.error("Cannot start discovery multicast handler: " + e,e);
@@ -168,27 +210,58 @@ public class AgentServlet extends HttpServlet {
         }
     }
 
+
     // Try to find an URL for system props or config
     private String findAgentUrl(Configuration pConfig) {
-        // System property has precedence
-        String url = System.getProperty("jolokia." + ConfigKey.DISCOVERY_AGENT_URL.getKeyValue());
-        if (url == null) {
-            url = System.getenv("JOLOKIA_DISCOVERY_AGENT_URL");
-            if (url == null) {
-                url = pConfig.get(ConfigKey.DISCOVERY_AGENT_URL);
-            }
-        }
+        String url = getOrDefault(ConfigKey.DISCOVERY_AGENT_URL,
+                                  "JOLOKIA_DISCOVERY_AGENT_URL",
+                                  pConfig,
+                                  String.class);
         return NetworkUtil.replaceExpression(url);
     }
 
     // For war agent needs to be switched on
     private boolean listenForDiscoveryMcRequests(Configuration pConfig) {
-        // Check for system props, system env and agent config
-        boolean sysProp = System.getProperty("jolokia." + ConfigKey.DISCOVERY_ENABLED.getKeyValue()) != null;
-        boolean env     = System.getenv("JOLOKIA_DISCOVERY") != null;
-        boolean config  = pConfig.getAsBoolean(ConfigKey.DISCOVERY_ENABLED);
-        return sysProp || env || config;
+        return getOrDefault(ConfigKey.DISCOVERY_ENABLED,
+                            "JOLOKIA_DISCOVERY",
+                            pConfig,
+                            Boolean.class);
     }
+
+        private <T> T getOrDefault(ConfigKey configKey, String sysEnvKey, Configuration pConfig, Class<T> clazz) {
+
+        // 1. As system property
+        String property = System.getProperty("jolokia." + configKey.getKeyValue());
+        if (property != null) {
+            return getAsType(property, clazz);
+        }
+
+        // 2. As environment variable
+        property = System.getenv(sysEnvKey);
+        if (property != null) {
+            return getAsType(property, clazz);
+        }
+
+        // 3. As configured valued
+        property = pConfig.get(configKey);
+        if (property != null) {
+            return getAsType(property, clazz);
+        }
+
+        // 4. Default value
+        return getAsType(configKey.getDefaultValue(), clazz);
+    }
+
+    private <T> T getAsType(String property, Class<T> clazz) {
+        if (clazz == Integer.class) {
+           return (T) Integer.valueOf(property);
+        } else if (clazz == Boolean.class) {
+            return (T) Boolean.valueOf(property);
+        } else {
+            return (T) property;
+        }
+    }
+
     /**
      * Create a log handler using this servlet's logging facility for logging. This method can be overridden
      * to provide a custom log handler. This method is called before {@link RestrictorFactory#createRestrictor(Configuration,LogHandler)} so the log handler
@@ -254,7 +327,7 @@ public class AgentServlet extends HttpServlet {
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Map<String,String> responseHeaders =
                 requestHandler.handleCorsPreflightRequest(
-                        req.getHeader("Origin"),
+                        getOriginOrReferer(req),
                         req.getHeader("Access-Control-Request-Headers"));
         for (Map.Entry<String,String> entry : responseHeaders.entrySet()) {
             resp.setHeader(entry.getKey(),entry.getValue());
@@ -474,8 +547,7 @@ public class AgentServlet extends HttpServlet {
         setContentType(pResp,
                        MimeTypeUtil.getResponseMimeType(
                            pReq.getParameter(ConfigKey.MIME_TYPE.getKeyValue()),
-                           configMimeType, callback
-                                                       ));
+                           configMimeType, callback));
         pResp.setStatus(HttpServletResponse.SC_OK);
         setNoCacheHeaders(pResp);
         if (pJson == null) {

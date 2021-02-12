@@ -108,7 +108,9 @@ public class JolokiaHttpHandler implements HttpHandler {
         requestHandler = new HttpRequestHandler(configuration, backendManager, logHandler);
         if (listenForDiscoveryMcRequests(configuration)) {
             try {
-                discoveryMulticastResponder = new DiscoveryMulticastResponder(backendManager, restrictor, logHandler);
+                String multicastGroup = configuration.get(ConfigKey.MULTICAST_GROUP);
+                int multicastPort = configuration.getAsInt(ConfigKey.MULTICAST_PORT);
+                discoveryMulticastResponder = new DiscoveryMulticastResponder(backendManager, restrictor, multicastGroup, multicastPort, logHandler);
                 discoveryMulticastResponder.start();
             } catch (IOException e) {
                 logHandler.error("Cannot start discovery multicast handler: " + e, e);
@@ -293,7 +295,7 @@ public class JolokiaHttpHandler implements HttpHandler {
     private void performCorsPreflightCheck(HttpExchange pExchange) {
         Headers requestHeaders = pExchange.getRequestHeaders();
         Map<String,String> respHeaders =
-                requestHandler.handleCorsPreflightRequest(requestHeaders.getFirst("Origin"),
+                requestHandler.handleCorsPreflightRequest(extractOriginOrReferer(pExchange),
                                                           requestHeaders.getFirst("Access-Control-Request-Headers"));
         Headers responseHeaders = pExchange.getResponseHeaders();
         for (Map.Entry<String,String> entry : respHeaders.entrySet()) {

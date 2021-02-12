@@ -26,14 +26,6 @@
     <servlet-class>org.jolokia.http.AgentServlet</servlet-class>
     <init-param>
       <description>
-        Class names (comma separated) of RequestDispatcher used in addition
-        to the LocalRequestDispatcher
-      </description>
-      <param-name>dispatcherClasses</param-name>
-      <param-value>org.jolokia.jsr160.Jsr160RequestDispatcher</param-value>
-    </init-param>
-    <init-param>
-      <description>
         Debugging state after startup. Can be changed via
         the Config MBean during runtime
       </description>
@@ -161,12 +153,11 @@
   </servlet-mapping>
 
   <!--
-  Example Configuration for switching on BASIC security. The role 'Jolokia'
-  must be mapped to real users with passwords on the Appserver side:
-
+  Security enabled by default. Please update to match you specific security setup (e.g. the auth-method)
+  -->
   <login-config>
     <auth-method>BASIC</auth-method>
-    <realm-name>Jolokia</realm-name>
+    <realm-name>jolokia</realm-name>
   </login-config>
 
   <security-constraint>
@@ -175,14 +166,13 @@
       <url-pattern>/*</url-pattern>
     </web-resource-collection>
     <auth-constraint>
-      <role-name>Jolokia</role-name>
+      <role-name>jolokia</role-name>
     </auth-constraint>
   </security-constraint>
 
   <security-role>
-    <role-name>Jolokia</role-name>
+    <role-name>jolokia</role-name>
   </security-role>
-  -->
 </web-app>
 
 <!--
